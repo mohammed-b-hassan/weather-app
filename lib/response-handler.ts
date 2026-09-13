@@ -72,5 +72,7 @@ export function toErrorResponse(err: unknown): {
 } {
   const appErr = err instanceof AppError ? err : new AppError('INTERNAL');
   if (!(err instanceof AppError)) console.error('Unhandled error:', err);
+  // server log
+  console.log(`ERROR(${appErr.code}):`, appErr.message);
   return formatResponse(appErr.status, appErr, null);
 }

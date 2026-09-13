@@ -2,13 +2,18 @@ import { AppError, fromUpstreamStatus } from '@/lib/response-handler';
 import { owmCurrentSchema, owmForecastSchema, owmCitiesSchema } from './schema';
 import type { City } from '@/lib/types';
 
-const BASE = 'https://api.openweathermap.org';
 const TIMEOUT_MS = 8_000;
 
 function apiKey(): string {
   const key = process.env.OPENWEATHER_API_KEY;
   if (!key) throw new AppError('INTERNAL', 'OPENWEATHER_API_KEY is not set');
   return key;
+}
+function baseUrl(): string {
+  const url = process.env.OPENWEATHER_API_BASE_URL;
+  if (!url)
+    throw new AppError('INTERNAL', 'OPENWEATHER_API_BASE_URL is not set');
+  return url;
 }
 
 async function getJson(url: string): Promise<unknown> {
@@ -29,7 +34,7 @@ async function getJson(url: string): Promise<unknown> {
 }
 
 export async function searchCities(query: string, limit = 5): Promise<City[]> {
-  const url = `${BASE}/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=${limit}&appid=${apiKey()}`;
+  const url = `${baseUrl()}/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=${limit}&appid=${apiKey()}`;
   const parsed = owmCitiesSchema.safeParse(await getJson(url));
   if (!parsed.success)
     throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
@@ -37,7 +42,7 @@ export async function searchCities(query: string, limit = 5): Promise<City[]> {
 }
 
 export async function fetchCurrent(lat: number, lon: number) {
-  const url = `${BASE}/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
+  const url = `${baseUrl()}/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
   const parsed = owmCurrentSchema.safeParse(await getJson(url));
   if (!parsed.success)
     throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
@@ -45,7 +50,7 @@ export async function fetchCurrent(lat: number, lon: number) {
 }
 
 export async function fetchForecast(lat: number, lon: number) {
-  const url = `${BASE}/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
+  const url = `${baseUrl()}/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
   const parsed = owmForecastSchema.safeParse(await getJson(url));
   if (!parsed.success)
     throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
