@@ -1,5 +1,7 @@
 import type { City } from '@/lib/types';
-
+import type { z } from 'zod';
+import { AppError } from './response-handler';
+import type { ErrorCode } from './types';
 /**
  * Everything is formatted in UTC on purpose: the same string has to come out of
  * the server render and the client hydration, and the viewer's timezone is not
@@ -43,4 +45,16 @@ export function cityLabel(city: City): string {
 
 export function cityKey(city: City): string {
   return `${city.lat.toFixed(2)},${city.lon.toFixed(2)}`;
+}
+
+export function parseOrThrow<T>(
+  schema: z.ZodType<T>,
+  value: unknown,
+  code: ErrorCode,
+): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new AppError(code, parsed.error.message);
+  }
+  return parsed.data;
 }

@@ -1,4 +1,4 @@
-import { cityKey } from '../format';
+import { cityKey } from '../utils';
 import { MAX_RECENT, type RecentSearchStore } from './recent-searches';
 import type { City } from '@/lib/types';
 

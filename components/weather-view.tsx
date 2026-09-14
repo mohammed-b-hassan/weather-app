@@ -7,7 +7,7 @@ import { ErrorState } from './error-state';
 import { ForecastList } from './forecast-list';
 import { SearchBar } from './search-bar';
 import { WeatherSkeleton } from './skeletons';
-import { cityKey } from '../lib/format';
+import { cityKey } from '../lib/utils';
 
 const GENERIC: Failure = {
   message: 'Something went wrong on our end.',

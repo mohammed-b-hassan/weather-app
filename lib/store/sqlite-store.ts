@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { MAX_RECENT, type RecentSearchStore } from './recent-searches';
 import type { City } from '@/lib/types';
-import { cityKey } from '@/lib/format';
+import { cityKey } from '@/lib/utils';
 
 /** Shape of a row as SQLite returns it — SQL has no `undefined`, only NULL. */
 interface RecentSearchRow {

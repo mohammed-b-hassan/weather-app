@@ -1,13 +1,13 @@
+import { parseQuery, weatherQuerySchema } from '@/lib/request-schema';
 import { toErrorResponse, toSuccessResponse } from '@/lib/response-handler';
 import { getCity, getWeatherForCity } from '@/lib/weather/service';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const query = searchParams.get('city') || '';
+    const { city } = parseQuery(weatherQuerySchema, request);
 
-    const searchedCity = await getCity(query);
+    const searchedCity = await getCity(city);
     const result = await getWeatherForCity(searchedCity);
     const response = toSuccessResponse(result);
 

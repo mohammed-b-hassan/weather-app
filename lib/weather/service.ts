@@ -1,5 +1,5 @@
 import { TtlCache } from '../cache/ttl-cache';
-import { cityKey } from '../format';
+import { cityKey } from '../utils';
 import { AppError } from '../response-handler';
 import { getStore } from '../store/recent-searches';
 import { City, WeatherSnapshot } from '../types';

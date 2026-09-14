@@ -1,6 +1,8 @@
 import { AppError, fromUpstreamStatus } from '@/lib/response-handler';
+import { parseOrThrow } from '@/lib/utils';
 import { owmCurrentSchema, owmForecastSchema, owmCitiesSchema } from './schema';
 import type { City } from '@/lib/types';
+import type { z } from 'zod';
 
 const TIMEOUT_MS = 8_000;
 
@@ -33,26 +35,21 @@ async function getJson(url: string): Promise<unknown> {
   return response.json();
 }
 
+function parseUpstream<T>(schema: z.ZodType<T>, value: unknown): T {
+  return parseOrThrow(schema, value, 'UPSTREAM_UNAVAILABLE');
+}
+
 export async function searchCities(query: string, limit = 5): Promise<City[]> {
   const url = `${baseUrl()}/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=${limit}&appid=${apiKey()}`;
-  const parsed = owmCitiesSchema.safeParse(await getJson(url));
-  if (!parsed.success)
-    throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
-  return parsed.data;
+  return parseUpstream(owmCitiesSchema, await getJson(url));
 }
 
 export async function fetchCurrent(lat: number, lon: number) {
   const url = `${baseUrl()}/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
-  const parsed = owmCurrentSchema.safeParse(await getJson(url));
-  if (!parsed.success)
-    throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
-  return parsed.data;
+  return parseUpstream(owmCurrentSchema, await getJson(url));
 }
 
 export async function fetchForecast(lat: number, lon: number) {
   const url = `${baseUrl()}/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey()}`;
-  const parsed = owmForecastSchema.safeParse(await getJson(url));
-  if (!parsed.success)
-    throw new AppError('UPSTREAM_UNAVAILABLE', parsed.error.message);
-  return parsed.data;
+  return parseUpstream(owmForecastSchema, await getJson(url));
 }

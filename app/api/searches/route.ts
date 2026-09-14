@@ -1,8 +1,5 @@
-import {
-  AppError,
-  toErrorResponse,
-  toSuccessResponse,
-} from '@/lib/response-handler';
+import { parseBody, recordSearchSchema } from '@/lib/request-schema';
+import { toErrorResponse, toSuccessResponse } from '@/lib/response-handler';
 import { getRecentSearch, recordSearch } from '@/lib/weather/service';
 import { NextRequest } from 'next/server';
 
@@ -17,13 +14,12 @@ export async function GET() {
     return Response.json(errorResponse, { status: errorResponse.status });
   }
 }
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { searchTerm } = body;
-    if (!searchTerm) throw new AppError('INVALID_INPUT');
-    await recordSearch(searchTerm);
+    const { searchTerm } = await parseBody(recordSearchSchema, request);
 
+    await recordSearch(searchTerm);
     const response = toSuccessResponse(null);
 
     return Response.json(response, { status: response.status });

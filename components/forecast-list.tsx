@@ -1,6 +1,6 @@
 import type { ForecastDay } from '@/lib/types';
 import { WeatherIcon } from './weather-icon';
-import { capitalize, formatDayMonth, formatWeekday } from '../lib/format';
+import { capitalize, formatDayMonth, formatWeekday } from '../lib/utils';
 
 type Props = {
   days: ForecastDay[];

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ApiEnvelope, City } from '@/lib/types';
-import { cityKey, cityLabel } from '../lib/format';
+import { cityKey, cityLabel } from '../lib/utils';
 
 type Props = {
   recents: City[];
