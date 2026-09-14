@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f6fa;
+  --foreground: #0d1420;
+  --card: #ffffff;
+  --muted: #eef1f6;
+  --muted-foreground: #5a6577;
+  --border: #dfe4ec;
+  --accent: #2563eb;
+  --accent-foreground: #ffffff;
+  --danger: #b42318;
+  --danger-surface: #fef4f2;
+  --sun: #f59e0b;
+  --moon: #8b93a7;
+  --cloud: #b6c0d0;
+  --rain: #3b82f6;
+  --snow: #7dd3fc;
+  --bolt: #f59e0b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-sun: var(--sun);
+  --color-moon: var(--moon);
+  --color-cloud: var(--cloud);
+  --color-rain: var(--rain);
+  --color-snow: var(--snow);
+  --color-bolt: var(--bolt);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #080b12;
+    --foreground: #e9edf5;
+    --card: #121826;
+    --muted: #1a2233;
+    --muted-foreground: #98a4ba;
+    --border: #232c3d;
+    --accent: #3b82f6;
+    --accent-foreground: #ffffff;
+    --danger: #fca5a5;
+    --danger-surface: #2a1413;
+    --sun: #fbbf24;
+    --moon: #cbd5e1;
+    --cloud: #64748b;
+    --rain: #60a5fa;
+    --snow: #93c5fd;
+    --bolt: #fbbf24;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Forecast scrolls horizontally on narrow screens; keep the scroll, drop the bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

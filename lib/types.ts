@@ -31,6 +31,23 @@ export interface WeatherSnapshot {
   forecast: ForecastDay[];
   cached: boolean;
 }
+export type ApiEnvelope<T> = {
+  status: number;
+  errorObject: ErrorObject;
+  data: T | null;
+};
+
+export type Failure = { message: string; code: ErrorCode };
+
+export type WeatherInitialState =
+  | { kind: 'ready'; snapshot: WeatherSnapshot }
+  | { kind: 'error'; query: string; failure: Failure };
+
+export type WeatherViewState =
+  | { kind: 'ready'; snapshot: WeatherSnapshot }
+  | { kind: 'loading' }
+  | { kind: 'error'; failure: Failure };
+
 export type ErrorCode =
   | 'CITY_NOT_FOUND'
   | 'INVALID_INPUT'
