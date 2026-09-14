@@ -96,6 +96,57 @@ describe('parseQuery', () => {
     ).toThrow(AppError);
   });
 
+  test('accepts coordinates and converts them to numbers', () => {
+    expect(
+      parseQuery(
+        weatherQuerySchema,
+        get('http://localhost/api?lat=48.8566&lon=2.3522'),
+      ),
+    ).toEqual({ lat: 48.8566, lon: 2.3522 });
+  });
+
+  test('accepts a negative coordinate', () => {
+    expect(
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=-33.86&lon=-70.66')),
+    ).toEqual({ lat: -33.86, lon: -70.66 });
+  });
+
+  test('rejects coordinates outside the valid range', () => {
+    expect(() =>
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=91&lon=0')),
+    ).toThrow(AppError);
+    expect(() =>
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=0&lon=181')),
+    ).toThrow(AppError);
+  });
+
+  test('rejects coordinates that are not numbers', () => {
+    expect(() =>
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=here&lon=0')),
+    ).toThrow(AppError);
+  });
+
+  test('rejects a blank coordinate rather than reading it as zero', () => {
+    expect(() =>
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=&lon=')),
+    ).toThrow(AppError);
+  });
+
+  test('rejects a half-given coordinate pair', () => {
+    expect(() =>
+      parseQuery(weatherQuerySchema, get('http://localhost/api?lat=48.8566')),
+    ).toThrow(AppError);
+  });
+
+  test('prefers an explicit city over coordinates', () => {
+    expect(
+      parseQuery(
+        weatherQuerySchema,
+        get('http://localhost/api?city=Paris&lat=0&lon=0'),
+      ),
+    ).toEqual({ city: 'Paris' });
+  });
+
   test('rejects an overlong parameter', () => {
     expect(() =>
       parseQuery(

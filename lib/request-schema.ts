@@ -15,9 +15,19 @@ export const citySchema: z.ZodType<City> = z.object({
   lon: z.number().min(-180).max(180),
 });
 
-export const weatherQuerySchema = z.object({
-  city: z.string().trim().min(1).max(MAX_QUERY_LENGTH),
-});
+function coordinate(bound: number) {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .transform(Number)
+    .pipe(z.number().min(-bound).max(bound));
+}
+
+export const weatherQuerySchema = z.union([
+  z.object({ city: z.string().trim().min(1).max(MAX_QUERY_LENGTH) }),
+  z.object({ lat: coordinate(90), lon: coordinate(180) }),
+]);
 
 export const suggestQuerySchema = z.object({
   q: z.string().trim().min(1).max(MAX_QUERY_LENGTH),

@@ -1,4 +1,4 @@
-import { cityKey } from '../utils';
+import { coordKey } from '../utils';
 import { MAX_RECENT, type RecentSearchStore } from './recent-searches';
 import type { City } from '@/lib/types';
 
@@ -22,9 +22,9 @@ export class MemoryRecentSearchStore implements RecentSearchStore {
   }
 
   async add(city: City): Promise<void> {
-    const key = cityKey(city);
+    const key = coordKey(city.lat, city.lon);
     const withoutDuplicate = this.cities.filter(
-      (existing) => cityKey(existing) !== key,
+      (existing) => coordKey(existing.lat, existing.lon) !== key,
     );
     this.cities = [{ ...city }, ...withoutDuplicate].slice(0, MAX_RECENT);
   }

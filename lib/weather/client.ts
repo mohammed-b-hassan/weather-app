@@ -40,7 +40,7 @@ function parseUpstream<T>(schema: z.ZodType<T>, value: unknown): T {
 }
 
 export async function searchCities(query: string, limit = 5): Promise<City[]> {
-  const url = `${baseUrl()}/geo/1.0/direct?q=${encodeURIComponent(query)}&limit=${limit}&appid=${apiKey()}`;
+  const url = `${baseUrl()}/geo/2.5/direct?q=${encodeURIComponent(query)}&limit=${limit}&appid=${apiKey()}`;
   return parseUpstream(owmCitiesSchema, await getJson(url));
 }
 

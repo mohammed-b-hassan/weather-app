@@ -1,5 +1,5 @@
 import { TtlCache } from '../cache/ttl-cache';
-import { cityKey } from '../utils';
+import { coordKey } from '../utils';
 import { AppError } from '../response-handler';
 import { getStore } from '../store/recent-searches';
 import { City, WeatherSnapshot } from '../types';
@@ -31,16 +31,29 @@ export async function getCities(query: string) {
   return cities;
 }
 export async function getWeatherForCity(city: City): Promise<WeatherSnapshot> {
-  const key = cityKey(city);
+  return getWeatherAt(city.lat, city.lon, city);
+}
+
+export async function getWeatherAt(
+  lat: number,
+  lon: number,
+  known?: City,
+): Promise<WeatherSnapshot> {
+  const key = coordKey(lat, lon);
   const hit = cache.get(key);
   if (hit) return { ...hit, cached: true };
   const [current, forecast] = await Promise.all([
-    fetchCurrent(city.lat, city.lon),
-    fetchForecast(city.lat, city.lon),
+    fetchCurrent(lat, lon),
+    fetchForecast(lat, lon),
   ]);
 
   const result: WeatherSnapshot = {
-    city,
+    city: known ?? {
+      name: forecast.city.name,
+      country: forecast.city.country,
+      lat,
+      lon,
+    },
     current: toCurrentWeather(current),
     forecast: toForecastDays(forecast),
     cached: false,

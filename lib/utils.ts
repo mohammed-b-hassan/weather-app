@@ -43,8 +43,8 @@ export function cityLabel(city: City): string {
   return [city.name, city.state, city.country].filter(Boolean).join(', ');
 }
 
-export function cityKey(city: City): string {
-  return `${city.lat.toFixed(2)},${city.lon.toFixed(2)}`;
+export function coordKey(lat: number, lon: number): string {
+  return `${lat.toFixed(2)},${lon.toFixed(2)}`;
 }
 
 export function parseOrThrow<T>(

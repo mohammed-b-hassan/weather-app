@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ApiEnvelope, City } from '@/lib/types';
-import { cityKey, cityLabel } from '../lib/utils';
+import { coordKey, cityLabel } from '../lib/utils';
 
 type Props = {
   recents: City[];
@@ -48,7 +48,7 @@ function merge(query: string, recents: City[], remote: City[]): Suggestion[] {
   const out: Suggestion[] = [];
 
   const push = (city: City, recent: boolean) => {
-    const key = cityKey(city);
+    const key = coordKey(city.lat, city.lon);
     if (seen.has(key)) return;
     seen.add(key);
     out.push({ city, recent });
@@ -228,7 +228,7 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
           )}
           {suggestions.map((suggestion, index) => (
             <li
-              key={cityKey(suggestion.city)}
+              key={coordKey(suggestion.city.lat, suggestion.city.lon)}
               id={`${listId}-option-${index}`}
               role="option"
               aria-selected={index === active}

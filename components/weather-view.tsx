@@ -1,27 +1,48 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
-import type { City, WeatherViewState , Failure, WeatherInitialState, WeatherSnapshot, ApiEnvelope } from '@/lib/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type {
+  City,
+  WeatherViewState,
+  Failure,
+  WeatherInitialState,
+  WeatherSnapshot,
+  ApiEnvelope,
+} from '@/lib/types';
 import { CurrentWeatherCard } from './current-weather-card';
 import { ErrorState } from './error-state';
 import { ForecastList } from './forecast-list';
 import { SearchBar } from './search-bar';
 import { WeatherSkeleton } from './skeletons';
-import { cityKey } from '../lib/utils';
+import { coordKey } from '../lib/utils';
 
 const GENERIC: Failure = {
   message: 'Something went wrong on our end.',
   code: 'INTERNAL',
 };
 
-/** Mirrors `MAX_RECENT` in the store; the server still enforces its own cap. */
 const MAX_RECENT = 5;
 
-/**
- * Record the search, then read the list back so the UI matches what the store
- * actually kept (dedupe, cap, ordering). Returns `null` if either leg fails —
- * the optimistic entry then just stands until the next page load.
- */
+const GEOLOCATION_ASKED_KEY = 'weather:geolocation-asked';
+const GEOLOCATION_TIMEOUT_MS = 10_000;
+
+function hasAskedForLocation(): boolean {
+  try {
+    return localStorage.getItem(GEOLOCATION_ASKED_KEY) !== null;
+  } catch {
+    return true;
+  }
+}
+
+function rememberLocationAsked(): void {
+  try {
+    localStorage.setItem(GEOLOCATION_ASKED_KEY, '1');
+  } catch {
+    return;
+  }
+}
+
+
 async function persistRecent(city: City): Promise<City[] | null> {
   try {
     const posted = await fetch('/api/searches', {
@@ -58,23 +79,29 @@ export function WeatherView({
   initial: WeatherInitialState;
   initialRecents: City[];
 }) {
-  const [view, setView] = useState<WeatherViewState>(() => initialView(initial));
+  const [view, setView] = useState<WeatherViewState>(() =>
+    initialView(initial),
+  );
   const [recents, setRecents] = useState<City[]>(initialRecents);
   const [query, setQuery] = useState(() => initialQuery(initial));
 
   // Only the newest request may write to state; earlier ones are ignored.
   const requestId = useRef(0);
+  // What a retry should re-issue — the last request was not necessarily a city.
+  // Seeded with the server-rendered query so retrying a failed first paint works.
+  const lastUrl = useRef(
+    `/api/weather?city=${encodeURIComponent(initialQuery(initial))}`,
+  );
 
-  const search = useCallback(async (nextQuery: string) => {
+  const load = useCallback(async (url: string, label: string) => {
     const id = ++requestId.current;
-    setQuery(nextQuery);
+    lastUrl.current = url;
+    setQuery(label);
     setView({ kind: 'loading' });
 
     let envelope: ApiEnvelope<WeatherSnapshot>;
     try {
-      const response = await fetch(
-        `/api/weather?city=${encodeURIComponent(nextQuery)}`,
-      );
+      const response = await fetch(url);
       envelope = (await response.json()) as ApiEnvelope<WeatherSnapshot>;
     } catch {
       if (id === requestId.current) {
@@ -115,6 +142,34 @@ export function WeatherView({
     if (stored && id === requestId.current) setRecents(stored);
   }, []);
 
+  const search = useCallback(
+    (nextQuery: string) => {
+      void load(
+        `/api/weather?city=${encodeURIComponent(nextQuery)}`,
+        nextQuery,
+      );
+    },
+    [load],
+  );
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    if (hasAskedForLocation()) return;
+
+    rememberLocationAsked();
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        void load(
+          `/api/weather?lat=${latitude}&lon=${longitude}`,
+          'your location',
+        );
+      },
+      () => undefined,
+      { timeout: GEOLOCATION_TIMEOUT_MS },
+    );
+  }, [load]);
+
   return (
     <>
       <SearchBar
@@ -138,7 +193,7 @@ export function WeatherView({
           <ErrorState
             message={view.failure.message}
             code={view.failure.code}
-            onRetry={() => search(query)}
+            onRetry={() => void load(lastUrl.current, query)}
             retrying={false}
           />
         )}
@@ -159,9 +214,9 @@ export function WeatherView({
 
 /** Optimistic local version of what the store does on `add`. */
 function withRecent(current: City[], city: City): City[] {
-  const key = cityKey(city);
-  return [city, ...current.filter((entry) => cityKey(entry) !== key)].slice(
-    0,
-    MAX_RECENT,
-  );
+  const key = coordKey(city.lat, city.lon);
+  return [
+    city,
+    ...current.filter((entry) => coordKey(entry.lat, entry.lon) !== key),
+  ].slice(0, MAX_RECENT);
 }
