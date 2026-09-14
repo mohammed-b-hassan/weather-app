@@ -5,16 +5,14 @@ import {
   getWeatherForCity,
 } from '@/lib/weather/service';
 import { DEFAULT_CITY } from '@/components/fixtures';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { readTheme } from '@/lib/theme';
 import { WeatherView } from '@/components/weather-view';
 import { City, WeatherInitialState } from '@/lib/types';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-/**
- * First paint is rendered on the server so the page arrives with weather
- * already on it. Every search after that is a client-side call to
- * `/api/weather` from `WeatherView`.
- */
+
 async function loadInitial(query: string): Promise<WeatherInitialState> {
   try {
     const city = await getCity(query);
@@ -48,6 +46,7 @@ export default async function Home({
 }) {
   const params = await searchParams;
   const raw = Array.isArray(params.city) ? params.city[0] : params.city;
+  const theme = await readTheme();
   const recents = await loadRecents();
   const query = raw?.trim() || recents[0]?.name || DEFAULT_CITY.name;
   const initial = await loadInitial(query);
@@ -55,9 +54,12 @@ export default async function Home({
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-          Weather
-        </h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            Weather
+          </h1>
+          <ThemeToggle initial={theme} />
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Current conditions and the next 5 days, for any city.
         </p>

@@ -35,11 +35,11 @@ export function ForecastList({ days }: Props) {
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         5-day forecast
       </h2>
-      <ul className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0">
+      <ul className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-pl-4 px-4 sm:mx-0 sm:grid sm:grid-cols-5 sm:scroll-pl-0 sm:px-0">
         {days.map((day) => (
           <li
             key={day.date}
-            className="w-36 shrink-0 snap-start rounded-2xl border border-border bg-card p-4 text-center shadow-sm sm:w-auto"
+            className="w-36 shrink-0 snap-start rounded-2xl border border-border bg-card p-4 text-center shadow-sm max-[340px]:w-32 sm:w-auto"
           >
             <p className="text-sm font-semibold">{formatWeekday(day.date)}</p>
             <p className="text-xs text-muted-foreground">
