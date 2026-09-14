@@ -1,6 +1,6 @@
 import type { City, CurrentWeather } from '@/lib/types';
 import { WeatherIcon } from './weather-icon';
-import { capitalize, cityLabel, formatObservedAt } from './format';
+import { capitalize, cityLabel, formatObservedAt } from '../lib/format';
 
 type Props = {
   city: City;

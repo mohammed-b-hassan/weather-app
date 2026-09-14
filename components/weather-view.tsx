@@ -5,15 +5,41 @@ import type { City, WeatherViewState , Failure, WeatherInitialState, WeatherSnap
 import { CurrentWeatherCard } from './current-weather-card';
 import { ErrorState } from './error-state';
 import { ForecastList } from './forecast-list';
-import { RECENT_SEARCHES } from './fixtures';
 import { SearchBar } from './search-bar';
 import { WeatherSkeleton } from './skeletons';
-import { cityKey } from './format';
+import { cityKey } from '../lib/format';
 
 const GENERIC: Failure = {
   message: 'Something went wrong on our end.',
   code: 'INTERNAL',
 };
+
+/** Mirrors `MAX_RECENT` in the store; the server still enforces its own cap. */
+const MAX_RECENT = 5;
+
+/**
+ * Record the search, then read the list back so the UI matches what the store
+ * actually kept (dedupe, cap, ordering). Returns `null` if either leg fails —
+ * the optimistic entry then just stands until the next page load.
+ */
+async function persistRecent(city: City): Promise<City[] | null> {
+  try {
+    const posted = await fetch('/api/searches', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ searchTerm: city }),
+    });
+    const ack = (await posted.json()) as ApiEnvelope<null>;
+    if (ack?.errorObject) return null;
+
+    const response = await fetch('/api/searches');
+    const envelope = (await response.json()) as ApiEnvelope<City[]>;
+    if (envelope?.errorObject || !Array.isArray(envelope?.data)) return null;
+    return envelope.data;
+  } catch {
+    return null;
+  }
+}
 
 function initialView(initial: WeatherInitialState): WeatherViewState {
   return initial.kind === 'ready'
@@ -25,12 +51,15 @@ function initialQuery(initial: WeatherInitialState): string {
   return initial.kind === 'ready' ? initial.snapshot.city.name : initial.query;
 }
 
-export function WeatherView({ initial }: { initial: WeatherInitialState }) {
+export function WeatherView({
+  initial,
+  initialRecents,
+}: {
+  initial: WeatherInitialState;
+  initialRecents: City[];
+}) {
   const [view, setView] = useState<WeatherViewState>(() => initialView(initial));
-  const [recents, setRecents] = useState<City[]>(() => {
-    if (initial.kind !== 'ready') return RECENT_SEARCHES;
-    return withRecent(RECENT_SEARCHES, initial.snapshot.city);
-  });
+  const [recents, setRecents] = useState<City[]>(initialRecents);
   const [query, setQuery] = useState(() => initialQuery(initial));
 
   // Only the newest request may write to state; earlier ones are ignored.
@@ -77,8 +106,13 @@ export function WeatherView({ initial }: { initial: WeatherInitialState }) {
       return;
     }
 
-    setView({ kind: 'ready', snapshot: envelope.data });
-    setRecents((current) => withRecent(current, envelope.data!.city));
+    const snapshot = envelope.data;
+    setView({ kind: 'ready', snapshot });
+
+    // Show it in the list immediately, then reconcile with the store.
+    setRecents((current) => withRecent(current, snapshot.city));
+    const stored = await persistRecent(snapshot.city);
+    if (stored && id === requestId.current) setRecents(stored);
   }, []);
 
   return (
@@ -123,11 +157,11 @@ export function WeatherView({ initial }: { initial: WeatherInitialState }) {
   );
 }
 
-/**
- * TODO: persist through `POST /api/searches` once the route exists — this list
- * currently lives only for the lifetime of the page.
- */
+/** Optimistic local version of what the store does on `add`. */
 function withRecent(current: City[], city: City): City[] {
   const key = cityKey(city);
-  return [city, ...current.filter((entry) => cityKey(entry) !== key)].slice(0, 8);
+  return [city, ...current.filter((entry) => cityKey(entry) !== key)].slice(
+    0,
+    MAX_RECENT,
+  );
 }

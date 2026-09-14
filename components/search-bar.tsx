@@ -1,9 +1,8 @@
 'use client';
 
-import { useId, useMemo, useRef, useState } from 'react';
-import type { City } from '@/lib/types';
-import { SUGGESTION_POOL } from './fixtures';
-import { cityKey, cityLabel } from './format';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { ApiEnvelope, City } from '@/lib/types';
+import { cityKey, cityLabel } from '../lib/format';
 
 type Props = {
   recents: City[];
@@ -18,13 +17,32 @@ type Suggestion = {
 };
 
 const MAX_SUGGESTIONS = 7;
+const MIN_QUERY_LENGTH = 2;
+const DEBOUNCE_MS = 300;
 
 /**
- * TODO: replace `match()` with a debounced `GET /api/suggest?q=` once the route
- * exists. The dropdown already treats remote results as optional — recents are
- * rendered first and stand alone if nothing else matches.
+ * Suggestions are a convenience, never a blocker: any failure — route down,
+ * upstream error, aborted request — resolves to an empty list, and the dropdown
+ * falls back to recent searches alone.
  */
-function match(query: string, recents: City[]): Suggestion[] {
+async function fetchSuggestions(
+  query: string,
+  signal: AbortSignal,
+): Promise<City[]> {
+  try {
+    const response = await fetch(`/api/suggest?q=${encodeURIComponent(query)}`, {
+      signal,
+    });
+    const envelope = (await response.json()) as ApiEnvelope<City[]>;
+    if (envelope?.errorObject || !Array.isArray(envelope?.data)) return [];
+    return envelope.data;
+  } catch {
+    return [];
+  }
+}
+
+/** Recents first, then whatever the API returned, deduped by rounded coordinates. */
+function merge(query: string, recents: City[], remote: City[]): Suggestion[] {
   const needle = query.trim().toLowerCase();
   const seen = new Set<string>();
   const out: Suggestion[] = [];
@@ -39,14 +57,8 @@ function match(query: string, recents: City[]): Suggestion[] {
   for (const city of recents) {
     if (!needle || city.name.toLowerCase().includes(needle)) push(city, true);
   }
-  if (needle) {
-    for (const city of SUGGESTION_POOL) {
-      if (city.name.toLowerCase().startsWith(needle)) push(city, false);
-    }
-    for (const city of SUGGESTION_POOL) {
-      if (city.name.toLowerCase().includes(needle)) push(city, false);
-    }
-  }
+  for (const city of remote) push(city, false);
+
   return out.slice(0, MAX_SUGGESTIONS);
 }
 
@@ -54,10 +66,53 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
   const [value, setValue] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [remote, setRemote] = useState<City[]>([]);
+  const [loading, setLoading] = useState(false);
+  // The input is seeded with the city already on screen. Until the user edits
+  // it, that text is not a query: it neither filters the recent-search list nor
+  // earns a suggest request.
+  const [edited, setEdited] = useState(false);
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const suggestions = useMemo(() => match(value, recents), [value, recents]);
+  const suggestions = useMemo(
+    () => merge(edited ? value : '', recents, remote),
+    [edited, value, recents, remote],
+  );
+
+  // Debounced lookup. `loading` is raised in the change handler instead, so the
+  // dropdown reacts while the debounce window is still open.
+  useEffect(() => {
+    const query = value.trim();
+    if (!edited || query.length < MIN_QUERY_LENGTH) return;
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      const cities = await fetchSuggestions(query, controller.signal);
+      if (controller.signal.aborted) return;
+      setRemote(cities);
+      setLoading(false);
+    }, DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [value, edited]);
+
+  function onChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const next = event.target.value;
+    setEdited(true);
+    setValue(next);
+    setActive(-1);
+    setOpen(true);
+    if (next.trim().length < MIN_QUERY_LENGTH) {
+      setRemote([]);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+  }
 
   function submit(query: string) {
     const trimmed = query.trim();
@@ -65,9 +120,14 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
       inputRef.current?.focus();
       return;
     }
+    // Submitting rewrites the input with the chosen name; don't let that echo
+    // back as another suggest lookup.
+    setEdited(false);
     setValue(trimmed);
     setOpen(false);
     setActive(-1);
+    setRemote([]);
+    setLoading(false);
     inputRef.current?.blur();
     onSearch(trimmed);
   }
@@ -85,16 +145,15 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
       setActive((index) => (index + 1) % suggestions.length);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActive((index) =>
-        index <= 0 ? suggestions.length - 1 : index - 1,
-      );
+      setActive((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
     } else if (event.key === 'Enter' && active >= 0) {
       event.preventDefault();
       submit(suggestions[active].city.name);
     }
   }
 
-  const expanded = open && suggestions.length > 0;
+  const searching = loading && suggestions.length === 0;
+  const expanded = open && (suggestions.length > 0 || searching);
 
   return (
     <form
@@ -138,11 +197,7 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
             aria-activedescendant={
               active >= 0 ? `${listId}-option-${active}` : undefined
             }
-            onChange={(event) => {
-              setValue(event.target.value);
-              setActive(-1);
-              setOpen(true);
-            }}
+            onChange={onChange}
             onFocus={() => setOpen(true)}
             onBlur={() => setOpen(false)}
             onKeyDown={onKeyDown}
@@ -163,8 +218,14 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
           id={listId}
           role="listbox"
           aria-label="City suggestions"
+          aria-busy={loading}
           className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg"
         >
+          {searching && (
+            <li className="px-4 py-2.5 text-sm text-muted-foreground">
+              Searching…
+            </li>
+          )}
           {suggestions.map((suggestion, index) => (
             <li
               key={cityKey(suggestion.city)}

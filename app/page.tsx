@@ -1,8 +1,12 @@
 import { AppError } from '@/lib/response-handler';
-import { getCity, getWeatherForCity } from '@/lib/weather/service';
+import {
+  getCity,
+  getRecentSearch,
+  getWeatherForCity,
+} from '@/lib/weather/service';
 import { DEFAULT_CITY } from '@/components/fixtures';
 import { WeatherView } from '@/components/weather-view';
-import { WeatherInitialState } from '@/lib/types';
+import { City, WeatherInitialState } from '@/lib/types';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -27,6 +31,16 @@ async function loadInitial(query: string): Promise<WeatherInitialState> {
   }
 }
 
+/** Recent searches are a nicety — a store failure must not take the page down. */
+async function loadRecents(): Promise<City[]> {
+  try {
+    return await getRecentSearch();
+  } catch (error) {
+    console.error('Reading recent searches failed:', error);
+    return [];
+  }
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -34,7 +48,8 @@ export default async function Home({
 }) {
   const params = await searchParams;
   const raw = Array.isArray(params.city) ? params.city[0] : params.city;
-  const query = raw?.trim() || DEFAULT_CITY.name;
+  const recents = await loadRecents();
+  const query = raw?.trim() || recents[0]?.name || DEFAULT_CITY.name;
   const initial = await loadInitial(query);
 
   return (
@@ -48,7 +63,7 @@ export default async function Home({
         </p>
       </header>
 
-      <WeatherView initial={initial} />
+      <WeatherView initial={initial} initialRecents={recents} />
     </main>
   );
 }

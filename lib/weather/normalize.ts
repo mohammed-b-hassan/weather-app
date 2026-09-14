@@ -52,7 +52,7 @@ export function toForecastDays(raw: OwmForecast): ForecastDay[] {
       isPartialDay: entries.length < MIN_ENTRIES_FOR_FULL_DAY,
     };
   });
-  return days[0]?.isPartialDay && days.length > 5
-    ? days.slice(1, 6)
-    : days.slice(0, 5);
+  return days[0]?.isPartialDay && days.length > FORECAST_DAYS
+    ? days.slice(1, FORECAST_DAYS + 1)
+    : days.slice(0, FORECAST_DAYS);
 }
