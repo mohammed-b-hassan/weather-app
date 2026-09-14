@@ -7,6 +7,7 @@ const STATUS: Record<ErrorCode, number> = {
   UPSTREAM_RATE_LIMITED: 429,
   UPSTREAM_TIMEOUT: 504,
   INTERNAL: 500,
+  INVALID_METHOD: 405,
 };
 
 const MESSAGE: Record<ErrorCode, string> = {
@@ -18,7 +19,7 @@ const MESSAGE: Record<ErrorCode, string> = {
     'Too many requests. Please wait a moment and try again.',
   UPSTREAM_TIMEOUT: 'The weather service took too long to respond.',
   INTERNAL: 'Something went wrong on our end.',
-  INVALID_METHOD: 'HTTP method is invalid',
+  INVALID_METHOD: 'HTTP method not allowed.',
 };
 
 export class AppError extends Error {
