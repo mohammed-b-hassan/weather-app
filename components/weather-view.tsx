@@ -64,6 +64,17 @@ function getPosition(): Promise<LocationResult> {
   });
 }
 
+async function fetchRecents(): Promise<City[] | null> {
+  try {
+    const response = await fetch('/api/searches');
+    const envelope = (await response.json()) as ApiEnvelope<City[]>;
+    if (envelope?.errorObject || !Array.isArray(envelope?.data)) return null;
+    return envelope.data;
+  } catch {
+    return null;
+  }
+}
+
 async function persistRecent(city: City): Promise<City[] | null> {
   try {
     const posted = await fetch('/api/searches', {
@@ -73,14 +84,11 @@ async function persistRecent(city: City): Promise<City[] | null> {
     });
     const ack = (await posted.json()) as ApiEnvelope<null>;
     if (ack?.errorObject) return null;
-
-    const response = await fetch('/api/searches');
-    const envelope = (await response.json()) as ApiEnvelope<City[]>;
-    if (envelope?.errorObject || !Array.isArray(envelope?.data)) return null;
-    return envelope.data;
   } catch {
     return null;
   }
+
+  return fetchRecents();
 }
 
 export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
@@ -152,10 +160,34 @@ export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
     [load],
   );
 
+  /**
+   * The server renders recents from its own instance of the store, and on
+   * serverless that instance is not the one the API routes run in — so the page
+   * can arrive with an empty list while `/api/searches` has five. Re-read from
+   * the route when that happens.
+   */
+  useEffect(() => {
+    if (initialRecents.length > 0) return;
+
+    let cancelled = false;
+
+    async function refill() {
+      const stored = await fetchRecents();
+      if (!cancelled && stored && stored.length > 0) setRecents(stored);
+    }
+
+    void refill();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRecents]);
+
   useEffect(() => {
     let cancelled = false;
 
-    void getPosition().then((result) => {
+    async function locate() {
+      const result = await getPosition();
       if (cancelled) return;
 
       if (!result.ok) {
@@ -165,8 +197,10 @@ export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
       }
 
       const { latitude, longitude } = result.position.coords;
-      void load(`/api/weather?lat=${latitude}&lon=${longitude}`, 'your location');
-    });
+      await load(`/api/weather?lat=${latitude}&lon=${longitude}`, 'your location');
+    }
+
+    void locate();
 
     return () => {
       cancelled = true;
