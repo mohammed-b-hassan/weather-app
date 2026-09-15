@@ -41,12 +41,9 @@ export type ApiEnvelope<T> = {
 
 export type Failure = { message: string; code: ErrorCode };
 
-export type WeatherInitialState =
-  | { kind: 'ready'; snapshot: WeatherSnapshot }
-  | { kind: 'error'; query: string; failure: Failure };
-
 export type WeatherViewState =
   | { kind: 'ready'; snapshot: WeatherSnapshot }
+  | { kind: 'empty' }
   | { kind: 'loading' }
   | { kind: 'error'; failure: Failure };
 

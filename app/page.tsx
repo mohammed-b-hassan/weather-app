@@ -1,33 +1,8 @@
-import { AppError } from '@/lib/response-handler';
-import {
-  getCity,
-  getRecentSearch,
-  getWeatherForCity,
-} from '@/lib/weather/service';
-import { DEFAULT_CITY } from '@/components/fixtures';
+import { getRecentSearch } from '@/lib/weather/service';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { readTheme } from '@/lib/theme';
 import { WeatherView } from '@/components/weather-view';
-import { City, WeatherInitialState } from '@/lib/types';
-
-type SearchParams = Promise<Record<string, string | string[] | undefined>>;
-
-
-async function loadInitial(query: string): Promise<WeatherInitialState> {
-  try {
-    const city = await getCity(query);
-    const snapshot = await getWeatherForCity(city);
-    return { kind: 'ready', snapshot };
-  } catch (error) {
-    const appError = error instanceof AppError ? error : new AppError('INTERNAL');
-    if (!(error instanceof AppError)) console.error('Initial render failed:', error);
-    return {
-      kind: 'error',
-      query,
-      failure: { message: appError.publicMessage, code: appError.code },
-    };
-  }
-}
+import { City } from '@/lib/types';
 
 /** Recent searches are a nicety — a store failure must not take the page down. */
 async function loadRecents(): Promise<City[]> {
@@ -39,17 +14,9 @@ async function loadRecents(): Promise<City[]> {
   }
 }
 
-export default async function Home({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
-  const params = await searchParams;
-  const raw = Array.isArray(params.city) ? params.city[0] : params.city;
+export default async function Home() {
   const theme = await readTheme();
   const recents = await loadRecents();
-  const query = raw?.trim() || recents[0]?.name || DEFAULT_CITY.name;
-  const initial = await loadInitial(query);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
@@ -65,7 +32,7 @@ export default async function Home({
         </p>
       </header>
 
-      <WeatherView initial={initial} initialRecents={recents} />
+      <WeatherView initialRecents={recents} />
     </main>
   );
 }

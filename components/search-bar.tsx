@@ -186,7 +186,6 @@ export function SearchBar({ recents, initialQuery, pending, onSearch }: Props) {
             id="city-search"
             ref={inputRef}
             type="text"
-            name="city"
             value={value}
             autoComplete="off"
             placeholder="Search a city…"

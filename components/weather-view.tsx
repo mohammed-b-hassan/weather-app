@@ -5,11 +5,11 @@ import type {
   City,
   WeatherViewState,
   Failure,
-  WeatherInitialState,
   WeatherSnapshot,
   ApiEnvelope,
 } from '@/lib/types';
 import { CurrentWeatherCard } from './current-weather-card';
+import { EmptyState } from './empty-state';
 import { ErrorState } from './error-state';
 import { ForecastList } from './forecast-list';
 import { SearchBar } from './search-bar';
@@ -23,25 +23,16 @@ const GENERIC: Failure = {
 
 const MAX_RECENT = 5;
 
-const GEOLOCATION_ASKED_KEY = 'weather:geolocation-asked';
 const GEOLOCATION_TIMEOUT_MS = 10_000;
+const GEOLOCATION_MAX_AGE_MS = 5 * 60 * 1000;
 
-function hasAskedForLocation(): boolean {
-  try {
-    return localStorage.getItem(GEOLOCATION_ASKED_KEY) !== null;
-  } catch {
-    return true;
-  }
+function locationMessage(error: GeolocationPositionError): string {
+  if (error.code === error.PERMISSION_DENIED)
+    return 'Location access is blocked, so search for a city instead.';
+  if (error.code === error.TIMEOUT)
+    return 'Finding your location took too long — search for a city instead.';
+  return 'Your location is not available on this device, so search for a city instead.';
 }
-
-function rememberLocationAsked(): void {
-  try {
-    localStorage.setItem(GEOLOCATION_ASKED_KEY, '1');
-  } catch {
-    return;
-  }
-}
-
 
 async function persistRecent(city: City): Promise<City[] | null> {
   try {
@@ -62,36 +53,16 @@ async function persistRecent(city: City): Promise<City[] | null> {
   }
 }
 
-function initialView(initial: WeatherInitialState): WeatherViewState {
-  return initial.kind === 'ready'
-    ? { kind: 'ready', snapshot: initial.snapshot }
-    : { kind: 'error', failure: initial.failure };
-}
-
-function initialQuery(initial: WeatherInitialState): string {
-  return initial.kind === 'ready' ? initial.snapshot.city.name : initial.query;
-}
-
-export function WeatherView({
-  initial,
-  initialRecents,
-}: {
-  initial: WeatherInitialState;
-  initialRecents: City[];
-}) {
-  const [view, setView] = useState<WeatherViewState>(() =>
-    initialView(initial),
-  );
+export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
+  const [view, setView] = useState<WeatherViewState>({ kind: 'empty' });
   const [recents, setRecents] = useState<City[]>(initialRecents);
-  const [query, setQuery] = useState(() => initialQuery(initial));
+  const [query, setQuery] = useState('');
+  const [locationNote, setLocationNote] = useState<string | null>(null);
 
   // Only the newest request may write to state; earlier ones are ignored.
   const requestId = useRef(0);
   // What a retry should re-issue — the last request was not necessarily a city.
-  // Seeded with the server-rendered query so retrying a failed first paint works.
-  const lastUrl = useRef(
-    `/api/weather?city=${encodeURIComponent(initialQuery(initial))}`,
-  );
+  const lastUrl = useRef('');
 
   const load = useCallback(async (url: string, label: string) => {
     const id = ++requestId.current;
@@ -140,22 +111,19 @@ export function WeatherView({
     setRecents((current) => withRecent(current, snapshot.city));
     const stored = await persistRecent(snapshot.city);
     if (stored && id === requestId.current) setRecents(stored);
+
+    return snapshot.city.name;
   }, []);
 
   const search = useCallback(
     (nextQuery: string) => {
-      void load(
-        `/api/weather?city=${encodeURIComponent(nextQuery)}`,
-        nextQuery,
-      );
+      void load(`/api/weather?city=${encodeURIComponent(nextQuery)}`, nextQuery);
     },
     [load],
   );
+
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
-    if (hasAskedForLocation()) return;
-
-    rememberLocationAsked();
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -165,8 +133,11 @@ export function WeatherView({
           'your location',
         );
       },
-      () => undefined,
-      { timeout: GEOLOCATION_TIMEOUT_MS },
+      (error) => setLocationNote(locationMessage(error)),
+      {
+        timeout: GEOLOCATION_TIMEOUT_MS,
+        maximumAge: GEOLOCATION_MAX_AGE_MS,
+      },
     );
   }, [load]);
 
@@ -174,7 +145,7 @@ export function WeatherView({
     <>
       <SearchBar
         recents={recents}
-        initialQuery={initialQuery(initial)}
+        initialQuery=""
         pending={view.kind === 'loading'}
         onSearch={search}
       />
@@ -188,6 +159,8 @@ export function WeatherView({
             <WeatherSkeleton />
           </>
         )}
+
+        {view.kind === 'empty' && <EmptyState note={locationNote} />}
 
         {view.kind === 'error' && (
           <ErrorState
