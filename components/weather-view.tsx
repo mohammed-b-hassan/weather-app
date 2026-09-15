@@ -26,12 +26,42 @@ const MAX_RECENT = 5;
 const GEOLOCATION_TIMEOUT_MS = 10_000;
 const GEOLOCATION_MAX_AGE_MS = 5 * 60 * 1000;
 
+const UNAVAILABLE =
+  'Your location is not available on this device, so search for a city instead.';
+
 function locationMessage(error: GeolocationPositionError): string {
   if (error.code === error.PERMISSION_DENIED)
     return 'Location access is blocked, so search for a city instead.';
   if (error.code === error.TIMEOUT)
     return 'Finding your location took too long — search for a city instead.';
-  return 'Your location is not available on this device, so search for a city instead.';
+  return UNAVAILABLE;
+}
+
+type LocationResult =
+  | { ok: true; position: GeolocationPosition }
+  | { ok: false; message: string };
+
+/**
+ * Wrapped in a promise so the result is always delivered asynchronously. That
+ * keeps the state updates out of the effect body, where React would flag them
+ * as cascading renders.
+ */
+function getPosition(): Promise<LocationResult> {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) {
+      resolve({ ok: false, message: UNAVAILABLE });
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ ok: true, position }),
+      (error) => resolve({ ok: false, message: locationMessage(error) }),
+      {
+        timeout: GEOLOCATION_TIMEOUT_MS,
+        maximumAge: GEOLOCATION_MAX_AGE_MS,
+      },
+    );
+  });
 }
 
 async function persistRecent(city: City): Promise<City[] | null> {
@@ -54,7 +84,7 @@ async function persistRecent(city: City): Promise<City[] | null> {
 }
 
 export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
-  const [view, setView] = useState<WeatherViewState>({ kind: 'empty' });
+  const [view, setView] = useState<WeatherViewState>({ kind: 'locating' });
   const [recents, setRecents] = useState<City[]>(initialRecents);
   const [query, setQuery] = useState('');
   const [locationNote, setLocationNote] = useState<string | null>(null);
@@ -123,22 +153,24 @@ export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
   );
 
   useEffect(() => {
-    if (!('geolocation' in navigator)) return;
+    let cancelled = false;
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        void load(
-          `/api/weather?lat=${latitude}&lon=${longitude}`,
-          'your location',
-        );
-      },
-      (error) => setLocationNote(locationMessage(error)),
-      {
-        timeout: GEOLOCATION_TIMEOUT_MS,
-        maximumAge: GEOLOCATION_MAX_AGE_MS,
-      },
-    );
+    void getPosition().then((result) => {
+      if (cancelled) return;
+
+      if (!result.ok) {
+        setLocationNote(result.message);
+        setView({ kind: 'empty' });
+        return;
+      }
+
+      const { latitude, longitude } = result.position.coords;
+      void load(`/api/weather?lat=${latitude}&lon=${longitude}`, 'your location');
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [load]);
 
   return (
@@ -151,11 +183,18 @@ export function WeatherView({ initialRecents }: { initialRecents: City[] }) {
       />
 
       <div className="mt-6">
-        {view.kind === 'loading' && (
+        {(view.kind === 'locating' || view.kind === 'loading') && (
           <>
             <p className="sr-only" role="status">
-              Loading weather for {query}
+              {view.kind === 'locating'
+                ? 'Finding your location'
+                : `Loading weather for ${query}`}
             </p>
+            {view.kind === 'locating' && (
+              <p className="mb-3 text-center text-sm text-muted-foreground">
+                Finding your location…
+              </p>
+            )}
             <WeatherSkeleton />
           </>
         )}

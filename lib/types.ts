@@ -44,6 +44,7 @@ export type Failure = { message: string; code: ErrorCode };
 export type WeatherViewState =
   | { kind: 'ready'; snapshot: WeatherSnapshot }
   | { kind: 'empty' }
+  | { kind: 'locating' }
   | { kind: 'loading' }
   | { kind: 'error'; failure: Failure };
 
