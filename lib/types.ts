@@ -53,8 +53,7 @@ export type ErrorCode =
   | 'UPSTREAM_UNAVAILABLE'
   | 'UPSTREAM_RATE_LIMITED'
   | 'UPSTREAM_TIMEOUT'
-  | 'INTERNAL'
-  | 'INVALID_METHOD';
+  | 'INTERNAL';
 export type ErrorObject = {
   error: string;
   code: ErrorCode;

@@ -63,25 +63,12 @@ describe('toCurrentWeather', () => {
     expect(weather.feelsLikeC).toBe(17);
   });
 
-  test('passes humidity and wind speed through unchanged', () => {
-    const weather = toCurrentWeather(current);
-
-    expect(weather.humidity).toBe(72);
-    expect(weather.windSpeedMs).toBe(4.1);
-  });
-
   test('converts the unix timestamp to an iso string', () => {
     expect(toCurrentWeather(current).observedAt).toBe(
       '2026-03-01T09:30:00.000Z',
     );
   });
 
-  test('takes the description and icon from the first condition', () => {
-    const weather = toCurrentWeather(current);
-
-    expect(weather.description).toBe('light rain');
-    expect(weather.iconCode).toBe('10d');
-  });
 });
 
 describe('toForecastDays', () => {

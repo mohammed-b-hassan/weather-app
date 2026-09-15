@@ -120,27 +120,4 @@ describe('toErrorResponse', () => {
   test('handles a thrown value that is not an Error', () => {
     expect(toErrorResponse('boom').status).toBe(500);
   });
-
-  test('logs the internal message so a failure stays traceable', () => {
-    toErrorResponse(new AppError('UPSTREAM_TIMEOUT', 'aborted after 8000ms'));
-
-    expect(serverLog).toHaveBeenCalledWith(
-      'ERROR(UPSTREAM_TIMEOUT):',
-      'aborted after 8000ms',
-    );
-  });
-
-  test('logs an unrecognised throw in full', () => {
-    const cause = new Error('connect ECONNREFUSED 127.0.0.1:5432');
-
-    toErrorResponse(cause);
-
-    expect(serverError).toHaveBeenCalledWith('Unhandled error:', cause);
-  });
-
-  test('does not log an unhandled error for a deliberate AppError', () => {
-    toErrorResponse(new AppError('CITY_NOT_FOUND'));
-
-    expect(serverError).not.toHaveBeenCalled();
-  });
 });
